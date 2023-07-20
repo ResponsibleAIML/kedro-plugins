@@ -5,7 +5,7 @@ import logging
 from copy import deepcopy
 from io import BytesIO
 from pathlib import PurePosixPath
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 import fsspec
 import pandas as pd
@@ -103,7 +103,7 @@ class CSVDataSet(AbstractVersionedDataSet[pd.DataFrame, pd.DataFrame]):
                 E.g. for ``GCSFileSystem`` it should look like `{"token": None}`.
             fs_args: Extra arguments to pass into underlying filesystem class constructor
                 (e.g. `{"project": "my-project"}` for ``GCSFileSystem``).
-            metadata: Any Any arbitrary metadata.
+            metadata: Any arbitrary metadata.
                 This is ignored by Kedro, but may be consumed by users or external plugins.
         """
         _fs_args = deepcopy(fs_args) or {}
@@ -201,3 +201,35 @@ class CSVDataSet(AbstractVersionedDataSet[pd.DataFrame, pd.DataFrame]):
         data = dataset_copy.load()
 
         return data.to_dict(orient="split")
+
+    def _profiler(
+        self, show: bool = False, chunksize: int = 10000
+    ) -> Union[Dict[str, int], None]:
+        """Calculates the file information (i.e., rows, cols and filesize)
+        Args:
+            show: Determines whether to get the file information
+            chunksize: Number of rows to read at a time.
+            Adjust the chunksize based on system memory
+        """
+        if not show:
+            return
+
+        # Create a copy so it doesn't contaminate the original dataset
+        dataset_copy = self._copy()
+        dataset_copy._load_args[
+            "chunksize"
+        ] = chunksize  # pylint: disable=protected-access
+
+        total_rows = 0
+        total_cols = None
+        filesize = 0
+
+        # Calculating rows and cols for a CSV file
+        for chunk in dataset_copy.load():
+            total_rows += len(chunk)
+            if total_cols is None:
+                total_cols = len(chunk.columns)
+
+        # TODO:  Calculate filesize for a CSV file
+
+        return {"rows": total_rows, "cols": total_cols, "filesize": filesize}

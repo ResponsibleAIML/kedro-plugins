@@ -8,6 +8,7 @@ from pathlib import PurePosixPath
 from typing import Any, Dict, Union
 
 import fsspec
+import openpyxl
 import pandas as pd
 from kedro.io.core import (
     PROTOCOL_DELIMITER,
@@ -270,3 +271,24 @@ class ExcelDataSet(
         data = dataset_copy.load()
 
         return data.to_dict(orient="split")
+
+    def _profiler(self, show: bool = False) -> Union[Dict[str, int], None]:
+        """Calculates the file information (i.e., rows, cols and filesize)
+        Args:
+            show: Determines whether to get the file information
+        """
+        if not show:
+            return
+
+        # Use openpyxl to read the number of rows and columns
+        # TODO: This will not work for remote files
+        wb = openpyxl.load_workbook(self._filepath, read_only=True, data_only=True)
+        ws = wb.active
+
+        total_rows, total_cols = ws.max_row - 1, ws.max_column
+
+        filesize = 0
+
+        # TODO:  Calculate filesize for an Excel file
+
+        return {"rows": total_rows, "cols": total_cols, "filesize": filesize}
