@@ -17,9 +17,7 @@ from kedro.io.core import (
     get_filepath_str,
     get_protocol_and_path,
 )
-import os
 import csv
-import boto3
 
 logger = logging.getLogger(__name__)
 
@@ -205,68 +203,51 @@ class CSVDataSet(AbstractVersionedDataSet[pd.DataFrame, pd.DataFrame]):
 
         return data.to_dict(orient="split")
 
-    def _get_s3_csv_statistics(self, file_path):
-        # TODO: This will not work as we haven't configured secrets. Need to configure
-        # Parse S3 bucket and key from the file path
-        _, bucket_name, key = file_path.split("/", 3)
-
-        # Get S3 object
-        s3 = boto3.client("s3")
-        response = s3.get_object(Bucket=bucket_name, Key=key)
-        content = response["Body"]
-
-        # Get filesize
-        file_size_bytes = content.content_length
+    def _get_file_size(self, file_path: str) -> str:
+        # Get the file size
+        file_size_bytes = self._fs.size(file_path)
         file_size_mb = file_size_bytes / (1024 * 1024)
 
-        # Get rows and columns count
+        return f"{round(file_size_mb, 1)}MB"
+
+    def _get_rows_count(self, file_path: str) -> int:
+        # Read the CSV file in chunks using fsspec.open function and csv.reader
         num_rows = 0
-        num_columns = 0
-
-        for row in csv.reader(content.readline().decode("utf-8").splitlines()):
-            num_rows += 1
-            num_columns = max(num_columns, len(row))
-
-        return {
-            "rows": num_rows - 1,
-            "columns": num_columns,
-            "file size": f"{round(file_size_mb, 1)}MB",
-        }
-
-    def _get_local_csv_statistics(self, file_path):
-        # Get filesize
-        file_size_bytes = os.path.getsize(file_path)
-        file_size_mb = file_size_bytes / (1024 * 1024)
-
-        # Get rows and columns count
-        num_rows = 0
-        num_columns = 0
-
-        with open(file_path, "r", newline="", encoding="utf-8") as csvfile:
-            reader = csv.reader(csvfile)
-            for row in reader:
+        with self._fs.open(file_path, mode="r", encoding="utf-8") as file:
+            csv_reader = csv.reader(file)
+            for _ in csv_reader:
                 num_rows += 1
-                num_columns = max(num_columns, len(row))
 
-        return {
-            "rows": num_rows - 1,
-            "columns": num_columns,
-            "file size": f"{round(file_size_mb, 1)}MB",
-        }
+        return num_rows - 1
 
-    def _profiler(self, show: bool = False) -> Union[Dict[str, Any], None]:
+    def _get_columns_count(self, file_path: str) -> int:
+        # Read the CSV file in chunks using fsspec.open function and csv.reader
+        with self._fs.open(file_path, mode="r", encoding="utf-8") as file:
+            csv_reader = csv.reader(file)
+            first_row = next(csv_reader)  # Read the first row
+
+        return len(first_row)
+
+    def _profiler(self, *args) -> Union[Dict[str, Any], None]:
         """Calculates the file information (i.e., rows, columns and file size)
         Args:
-            show: Determines whether to get the file information
+            rows: Determines whether to get the file information for number of rows
+            columns: Determines whether to get the file information for number of columns
+            file_size: Determines whether to get the file information for file size
         """
-        if not show:
+
+        if len(args) == 0:
             return
 
         file_path = get_filepath_str(self._filepath, self._protocol)
+        profiler_result = {}
 
-        # Check if the file is on a remote location (S3 or other cloud storage)
-        if file_path.startswith("s3://"):
-            return self._get_s3_csv_statistics(file_path)
+        # Based on args
+        if "rows" in args:
+            profiler_result["rows"] = self._get_rows_count(file_path)
+        if "columns" in args:
+            profiler_result["columns"] = self._get_columns_count(file_path)
+        if "file_size" in args:
+            profiler_result["file size"] = self._get_file_size(file_path)
 
-        # File is on the local file system
-        return self._get_local_csv_statistics(file_path)
+        return profiler_result
