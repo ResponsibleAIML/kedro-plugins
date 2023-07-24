@@ -17,6 +17,9 @@ from kedro.io.core import (
     get_filepath_str,
     get_protocol_and_path,
 )
+import os
+import csv
+import boto3
 
 logger = logging.getLogger(__name__)
 
@@ -202,34 +205,68 @@ class CSVDataSet(AbstractVersionedDataSet[pd.DataFrame, pd.DataFrame]):
 
         return data.to_dict(orient="split")
 
-    def _profiler(
-        self, show: bool = False, chunksize: int = 10000
-    ) -> Union[Dict[str, int], None]:
-        """Calculates the file information (i.e., rows, cols and filesize)
+    def _get_s3_csv_statistics(self, file_path):
+        # TODO: This will not work as we haven't configured secrets. Need to configure
+        # Parse S3 bucket and key from the file path
+        _, bucket_name, key = file_path.split("/", 3)
+
+        # Get S3 object
+        s3 = boto3.client("s3")
+        response = s3.get_object(Bucket=bucket_name, Key=key)
+        content = response["Body"]
+
+        # Get filesize
+        file_size_bytes = content.content_length
+        file_size_mb = file_size_bytes / (1024 * 1024)
+
+        # Get rows and columns count
+        num_rows = 0
+        num_columns = 0
+
+        for row in csv.reader(content.readline().decode("utf-8").splitlines()):
+            num_rows += 1
+            num_columns = max(num_columns, len(row))
+
+        return {
+            "rows": num_rows - 1,
+            "columns": num_columns,
+            "file size": f"{round(file_size_mb, 1)}MB",
+        }
+
+    def _get_local_csv_statistics(self, file_path):
+        # Get filesize
+        file_size_bytes = os.path.getsize(file_path)
+        file_size_mb = file_size_bytes / (1024 * 1024)
+
+        # Get rows and columns count
+        num_rows = 0
+        num_columns = 0
+
+        with open(file_path, "r", newline="", encoding="utf-8") as csvfile:
+            reader = csv.reader(csvfile)
+            for row in reader:
+                num_rows += 1
+                num_columns = max(num_columns, len(row))
+
+        return {
+            "rows": num_rows - 1,
+            "columns": num_columns,
+            "file size": f"{round(file_size_mb, 1)}MB",
+        }
+
+    def _profiler(self, show: bool = False) -> Union[Dict[str, Any], None]:
+        """Calculates the file information (i.e., rows, columns and file size)
         Args:
             show: Determines whether to get the file information
-            chunksize: Number of rows to read at a time.
-            Adjust the chunksize based on system memory
         """
         if not show:
             return
 
-        # Create a copy so it doesn't contaminate the original dataset
-        dataset_copy = self._copy()
-        dataset_copy._load_args[
-            "chunksize"
-        ] = chunksize  # pylint: disable=protected-access
+        file_path = get_filepath_str(self._filepath, self._protocol)
 
-        total_rows = 0
-        total_cols = None
-        filesize = 0
+        # Check if the file is on a remote location (S3 or other cloud storage)
+        if file_path.startswith("s3://"):
+            return self._get_s3_csv_statistics(file_path)
 
-        # Calculating rows and cols for a CSV file
-        for chunk in dataset_copy.load():
-            total_rows += len(chunk)
-            if total_cols is None:
-                total_cols = len(chunk.columns)
-
-        # TODO:  Calculate filesize for a CSV file
-
-        return {"rows": total_rows, "cols": total_cols, "filesize": filesize}
+        # File is on the local file system
+        return self._get_local_csv_statistics(file_path)

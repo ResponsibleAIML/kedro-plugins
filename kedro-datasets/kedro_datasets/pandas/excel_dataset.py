@@ -19,6 +19,9 @@ from kedro.io.core import (
     get_protocol_and_path,
 )
 
+import os
+import boto3
+
 logger = logging.getLogger(__name__)
 
 
@@ -272,7 +275,61 @@ class ExcelDataSet(
 
         return data.to_dict(orient="split")
 
-    def _profiler(self, show: bool = False) -> Union[Dict[str, int], None]:
+    def _get_s3_excel_statistics(self, file_path):
+        # TODO: This will not work as we haven't configured secrets. Need to configure
+
+        # Parse S3 bucket and key from the file path
+        _, bucket_name, key = file_path.split("/", 3)
+
+        # Get S3 object
+        s3 = boto3.client("s3")
+        response = s3.get_object(Bucket=bucket_name, Key=key)
+        excel_stream = response["Body"]
+
+        # Get filesize
+        file_size_bytes = response["ContentLength"]
+        file_size_mb = file_size_bytes / (1024 * 1024)
+
+        # Load the workbook using openpyxl in read-only mode
+        wb = openpyxl.load_workbook(
+            filename=excel_stream, read_only=True, data_only=True
+        )
+
+        # Select the worksheet
+        ws = wb.active
+
+        # Get rows and columns count
+        num_rows = ws.max_row - 1
+        num_columns = ws.max_column
+
+        return {
+            "rows": num_rows,
+            "columns": num_columns,
+            "file size": f"{round(file_size_mb, 1)}MB",
+        }
+
+    def _get_local_excel_statistics(self, file_path):
+        # Get filesize
+        file_size_bytes = os.path.getsize(file_path)
+        file_size_mb = file_size_bytes / (1024 * 1024)
+
+        # Load the workbook using openpyxl
+        wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
+
+        # Select the worksheet
+        ws = wb.active
+
+        # Get rows and columns count
+        num_rows = ws.max_row - 1
+        num_columns = ws.max_column
+
+        return {
+            "rows": num_rows,
+            "columns": num_columns,
+            "file size": f"{round(file_size_mb, 1)}MB",
+        }
+
+    def _profiler(self, show: bool = False) -> Union[Dict[str, Any], None]:
         """Calculates the file information (i.e., rows, cols and filesize)
         Args:
             show: Determines whether to get the file information
@@ -280,15 +337,11 @@ class ExcelDataSet(
         if not show:
             return
 
-        # Use openpyxl to read the number of rows and columns
-        # TODO: This will not work for remote files
-        wb = openpyxl.load_workbook(self._filepath, read_only=True, data_only=True)
-        ws = wb.active
+        file_path = get_filepath_str(self._filepath, self._protocol)
 
-        total_rows, total_cols = ws.max_row - 1, ws.max_column
+        # Check if the file is on a remote location (S3 or other cloud storage)
+        if file_path.startswith("s3://"):
+            return self._get_s3_excel_statistics(file_path)
 
-        filesize = 0
-
-        # TODO:  Calculate filesize for an Excel file
-
-        return {"rows": total_rows, "cols": total_cols, "filesize": filesize}
+        # File is on the local file system
+        return self._get_local_excel_statistics(file_path)
