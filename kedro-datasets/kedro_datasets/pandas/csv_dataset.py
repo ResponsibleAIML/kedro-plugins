@@ -206,22 +206,23 @@ class CSVDataSet(AbstractVersionedDataSet[pd.DataFrame, pd.DataFrame]):
     def _get_file_size(self, file_path: str) -> str:
         # Get the file size
         file_size_bytes = self._fs.size(file_path)
-        file_size_mb = file_size_bytes / (1024 * 1024)
+        file_size_mb = round(file_size_bytes / (1024 * 1024))
 
-        return f"{round(file_size_mb, 1)}MB"
+        return f"{file_size_mb}MB"
 
-    def _get_rows_count(self, file_path: str) -> int:
-        # Read the CSV file in chunks using fsspec.open function and csv.reader
+    def _get_rows_count(self) -> int:
         num_rows = 0
-        with self._fs.open(file_path, mode="r", encoding="utf-8") as file:
-            csv_reader = csv.reader(file)
-            for _ in csv_reader:
-                num_rows += 1
 
-        return num_rows - 1
+        dataset_copy = self._copy()
+        dataset_copy._load_args["chunksize"] = 10000
+
+        for chunk in dataset_copy.load():
+            num_rows += len(chunk)
+
+        return num_rows
 
     def _get_columns_count(self, file_path: str) -> int:
-        # Read the CSV file in chunks using fsspec.open function and csv.reader
+        # Read the CSV file using fsspec.open function and csv.reader
         with self._fs.open(file_path, mode="r", encoding="utf-8") as file:
             csv_reader = csv.reader(file)
             first_row = next(csv_reader)  # Read the first row
@@ -244,7 +245,7 @@ class CSVDataSet(AbstractVersionedDataSet[pd.DataFrame, pd.DataFrame]):
 
         # Based on args
         if "rows" in args:
-            profiler_result["rows"] = self._get_rows_count(file_path)
+            profiler_result["rows"] = self._get_rows_count()
         if "columns" in args:
             profiler_result["columns"] = self._get_columns_count(file_path)
         if "file_size" in args:
