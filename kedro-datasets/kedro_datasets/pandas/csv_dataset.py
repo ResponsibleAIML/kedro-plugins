@@ -254,6 +254,6 @@ class CSVDataSet(AbstractVersionedDataSet[pd.DataFrame, pd.DataFrame]):
         if "columns" in args:
             profiler_result["columns"] = self._get_column_count(file_path)
         if "file_size" in args:
-            profiler_result["file size"] = self._get_file_size(file_path)
+            profiler_result["file_size"] = self._get_file_size(file_path)
 
         return profiler_result

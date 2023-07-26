@@ -169,11 +169,11 @@ class TestExcelDataSet:
         [
             (["rows"], {"rows": 2}),
             (["columns"], {"columns": 3}),
-            (["file_size"], {"file size": "4.8KB"}),
+            (["file_size"], {"file_size": "4.8KB"}),
             (["rows", "columns"], {"rows": 2, "columns": 3}),
             (
                 ["rows", "columns", "file_size"],
-                {"rows": 2, "columns": 3, "file size": "4.8KB"},
+                {"rows": 2, "columns": 3, "file_size": "4.8KB"},
             ),
         ],
     )

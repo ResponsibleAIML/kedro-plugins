@@ -185,11 +185,11 @@ class TestCSVDataSet:
         [
             (["rows"], {"rows": 2}),
             (["columns"], {"columns": 3}),
-            (["file_size"], {"file size": "27bytes"}),
+            (["file_size"], {"file_size": "27bytes"}),
             (["rows", "columns"], {"rows": 2, "columns": 3}),
             (
                 ["rows", "columns", "file_size"],
-                {"rows": 2, "columns": 3, "file size": "27bytes"},
+                {"rows": 2, "columns": 3, "file_size": "27bytes"},
             ),
         ],
     )
