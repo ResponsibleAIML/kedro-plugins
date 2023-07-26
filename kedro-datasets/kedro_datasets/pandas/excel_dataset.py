@@ -275,9 +275,15 @@ class ExcelDataSet(
     def _get_file_size(self, file_path: str) -> str:
         # Get the file size
         file_size_bytes = self._fs.size(file_path)
-        file_size_mb = file_size_bytes / (1024 * 1024)
 
-        return f"{round(file_size_mb, 1)}MB"
+        if file_size_bytes < 1024:  # Less than 1 KB
+            return f"{file_size_bytes}bytes"
+        elif file_size_bytes < 1024 * 1024:  # Less than 1 MB
+            size_in_kb = file_size_bytes / 1024
+            return f"{size_in_kb:.1f}KB"
+        else:
+            size_in_mb = file_size_bytes / (1024 * 1024)
+            return f"{size_in_mb:.1f}MB"
 
     def _get_row_count(self, file_path: str) -> int:
         # Load the workbook using openpyxl

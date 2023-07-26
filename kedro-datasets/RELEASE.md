@@ -50,6 +50,11 @@ Many thanks to the following Kedroids for contributing PRs to this release:
 * [McDonnellJoseph](https://github.com/McDonnellJoseph)
 * [Danny Farah](https://github.com/dannyrfar)
 
+# Release 1.2.1:
+
+## Major features and improvements
+* Added the `_profiler` method to the Pandas `ExcelDataSet` and `CSVDataSet` classes.
+
 # Release 1.2.0:
 
 ## Major features and improvements

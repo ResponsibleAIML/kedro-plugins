@@ -180,6 +180,25 @@ class TestCSVDataSet:
         previewed = csv_data_set._preview(nrows=nrows)
         assert previewed == expected
 
+    @pytest.mark.parametrize(
+        "input_args, expected_output",
+        [
+            (["rows"], {"rows": 2}),
+            (["columns"], {"columns": 3}),
+            (["file_size"], {"file size": "27bytes"}),
+            (["rows", "columns"], {"rows": 2, "columns": 3}),
+            (
+                ["rows", "columns", "file_size"],
+                {"rows": 2, "columns": 3, "file size": "27bytes"},
+            ),
+        ],
+    )
+    def test_profiler(self, csv_data_set, dummy_dataframe, input_args, expected_output):
+        """Test _profiler returns the correct data structure."""
+        csv_data_set.save(dummy_dataframe)
+        profiler = csv_data_set._profiler(*input_args)
+        assert profiler == expected_output
+
     def test_load_missing_file(self, csv_data_set):
         """Check the error when trying to load missing file."""
         pattern = r"Failed while loading data from data set CSVDataSet\(.*\)"

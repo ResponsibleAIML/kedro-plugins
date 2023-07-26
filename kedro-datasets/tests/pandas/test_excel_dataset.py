@@ -164,6 +164,27 @@ class TestExcelDataSet:
         previewed = excel_data_set._preview(nrows=nrows)
         assert previewed == expected
 
+    @pytest.mark.parametrize(
+        "input_args, expected_output",
+        [
+            (["rows"], {"rows": 2}),
+            (["columns"], {"columns": 3}),
+            (["file_size"], {"file size": "4.8KB"}),
+            (["rows", "columns"], {"rows": 2, "columns": 3}),
+            (
+                ["rows", "columns", "file_size"],
+                {"rows": 2, "columns": 3, "file size": "4.8KB"},
+            ),
+        ],
+    )
+    def test_profiler(
+        self, excel_data_set, dummy_dataframe, input_args, expected_output
+    ):
+        """Test _profiler returns the correct data structure."""
+        excel_data_set.save(dummy_dataframe)
+        profiler = excel_data_set._profiler(*input_args)
+        assert profiler == expected_output
+
     def test_load_missing_file(self, excel_data_set):
         """Check the error when trying to load missing file."""
         pattern = r"Failed while loading data from data set ExcelDataSet\(.*\)"

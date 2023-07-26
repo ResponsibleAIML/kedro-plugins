@@ -206,22 +206,27 @@ class CSVDataSet(AbstractVersionedDataSet[pd.DataFrame, pd.DataFrame]):
     def _get_file_size(self, file_path: str) -> str:
         # Get the file size
         file_size_bytes = self._fs.size(file_path)
-        file_size_mb = round(file_size_bytes / (1024 * 1024))
 
-        return f"{file_size_mb}MB"
+        if file_size_bytes < 1024:  # Less than 1 KB
+            return f"{file_size_bytes}bytes"
+        elif file_size_bytes < 1024 * 1024:  # Less than 1 MB
+            size_in_kb = file_size_bytes / 1024
+            return f"{size_in_kb:.1f}KB"
+        else:
+            size_in_mb = file_size_bytes / (1024 * 1024)
+            return f"{size_in_mb:.1f}MB"
 
-    def _get_rows_count(self) -> int:
+    def _get_row_count(self, file_path) -> int:
         num_rows = 0
 
-        dataset_copy = self._copy()
-        dataset_copy._load_args["chunksize"] = 10000
+        with self._fs.open(file_path, mode="r", encoding="utf-8") as file:
+            # Counting number of lines
+            for _ in file:
+                num_rows += 1
 
-        for chunk in dataset_copy.load():
-            num_rows += len(chunk)
+        return num_rows - 1
 
-        return num_rows
-
-    def _get_columns_count(self, file_path: str) -> int:
+    def _get_column_count(self, file_path: str) -> int:
         # Read the CSV file using fsspec.open function and csv.reader
         with self._fs.open(file_path, mode="r", encoding="utf-8") as file:
             csv_reader = csv.reader(file)
@@ -245,9 +250,9 @@ class CSVDataSet(AbstractVersionedDataSet[pd.DataFrame, pd.DataFrame]):
 
         # Based on args
         if "rows" in args:
-            profiler_result["rows"] = self._get_rows_count()
+            profiler_result["rows"] = self._get_row_count(file_path)
         if "columns" in args:
-            profiler_result["columns"] = self._get_columns_count(file_path)
+            profiler_result["columns"] = self._get_column_count(file_path)
         if "file_size" in args:
             profiler_result["file size"] = self._get_file_size(file_path)
 
