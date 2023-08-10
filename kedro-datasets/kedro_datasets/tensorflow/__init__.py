@@ -1,11 +1,8 @@
 """Provides I/O for TensorFlow Models."""
-from typing import Any
 
-import lazy_loader as lazy
+__all__ = ["TensorFlowModelDataSet"]
 
-# https://github.com/pylint-dev/pylint/issues/4300#issuecomment-1043601901
-TensorFlowModelDataSet: Any
+from contextlib import suppress
 
-__getattr__, __dir__, __all__ = lazy.attach(
-    __name__, submod_attrs={"tensorflow_model_dataset": ["TensorFlowModelDataSet"]}
-)
+with suppress(ImportError):
+    from .tensorflow_model_dataset import TensorFlowModelDataSet
