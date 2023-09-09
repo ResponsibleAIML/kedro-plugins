@@ -17,6 +17,7 @@ ParquetDataSet: Any
 SQLQueryDataSet: Any
 SQLTableDataSet: Any
 XMLDataSet: Any
+Sas7bdatDataset: Any
 
 __getattr__, __dir__, __all__ = lazy.attach(
     __name__,
@@ -32,5 +33,6 @@ __getattr__, __dir__, __all__ = lazy.attach(
         "parquet_dataset": ["ParquetDataSet"],
         "sql_dataset": ["SQLQueryDataSet", "SQLTableDataSet"],
         "xml_dataset": ["XMLDataSet"],
+        "sas7bdat_dataset": ["Sas7bdatDataset"],
     },
 )
